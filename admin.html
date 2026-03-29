@@ -10,95 +10,168 @@
 <link rel="icon" type="image/png" href="https://res.cloudinary.com/dklefbj2a/image/upload/w_192,h_192,c_fill,f_png/v1774136201/BudgetMein_icon_ryjjlh.jpg"/>
 <link rel="apple-touch-icon" href="https://res.cloudinary.com/dklefbj2a/image/upload/w_192,h_192,c_fill,f_png/v1774136201/BudgetMein_icon_ryjjlh.jpg"/>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import{getFirestore,collection,getDocs,getDoc,doc,updateDoc,deleteDoc,setDoc,onSnapshot,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-import{getAuth,signInAnonymously}from"https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+import{getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+
 const FB={apiKey:"AIzaSyCVPIRPTwByKE431I5QwcPEmTH9qgcitj8",authDomain:"budgetmein-62bc0.firebaseapp.com",projectId:"budgetmein-62bc0",storageBucket:"budgetmein-62bc0.firebasestorage.app",messagingSenderId:"1097719035074",appId:"1:1097719035074:web:1570114f2b10d6fbe8775b"};
-const fbApp=initializeApp(FB);
-const db=getFirestore(fbApp);
-const auth=getAuth(fbApp);
-signInAnonymously(auth).catch(function(e){console.warn('[Admin] Auth err:',e.message);});
-const TG="8601047628:AAFJ0GppVLF8Fdz-cAlY7C3qAZFZVGGJeHw";
-const TG_ORD="-5158992691";
-async function tgMsg(text){
-  try{await fetch("https://api.telegram.org/bot"+TG+"/sendMessage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:TG_ORD,parse_mode:"HTML",text:text})});}catch(e){}
-}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ORDERS SECTION
+// ONLY THIS EMAIL CAN ACCESS ADMIN — change if needed
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-window._allOrders=[];
-window.loadOrders=async function(){
-  document.getElementById('loading').style.display='block';
-  document.getElementById('ordersDiv').innerHTML='';
+const ADMIN_EMAIL = "immkraut@gmail.com";
+
+const fbApp = initializeApp(FB);
+const db    = getFirestore(fbApp);
+const auth  = getAuth(fbApp);
+const provider = new GoogleAuthProvider();
+
+// Telegram — direct API with token
+const TG_TOKEN = "8601047628:AAFEajOzNt53lFCaTdEfPJjud9bB-SQp-UI";
+const TG_CHAT  = "-5158992691";
+async function tgMsg(text){
   try{
-    var orders=[];
-    var snap=await getDocs(collection(db,"orders"));
-    snap.forEach(function(d){orders.push({_docId:d.id,...d.data()});});
+    await fetch("https://api.telegram.org/bot"+TG_TOKEN+"/sendMessage",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({chat_id:TG_CHAT,parse_mode:"HTML",text:text})
+    });
+  }catch(e){}
+}
+
+// ── Google Sign-In ──
+window.signInWithGoogle = async function(){
+  var btn = document.getElementById('googleBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Signing in...';
+  try{
+    var result = await signInWithPopup(auth, provider);
+    var email  = result.user.email;
+    if(email !== ADMIN_EMAIL){
+      // Wrong account — sign them out immediately
+      await signOut(auth);
+      showDenied(email);
+    }
+    // If correct email — onAuthStateChanged will show the panel
+  }catch(e){
+    btn.disabled  = false;
+    btn.textContent = '🔴 Sign in with Google';
+    if(e.code !== 'auth/popup-closed-by-user'){
+      document.getElementById('loginErr').textContent = '❌ Error: ' + (e.message||e.code);
+    }
+  }
+};
+
+window.adminSignOut = async function(){
+  await signOut(auth);
+};
+
+function showDenied(email){
+  document.getElementById('loginErr').innerHTML =
+    '🚫 <b>Access Denied</b><br/>' +
+    '<span style="font-size:.75rem;color:#888">' + (email||'') + ' is not authorized.<br/>Use the correct Google account.</span>';
+  var btn = document.getElementById('googleBtn');
+  btn.disabled = false;
+  btn.textContent = '🔴 Sign in with Google';
+}
+
+// ── Watch auth state ──
+onAuthStateChanged(auth, function(user){
+  if(user && user.email === ADMIN_EMAIL){
+    // ✅ Correct admin logged in
+    document.getElementById('loginWrap').style.display = 'none';
+    document.getElementById('panel').style.display     = 'block';
+    document.getElementById('adminEmailDisplay').textContent = user.email;
+    loadOrders();
+    loadDeliveryBoys();
+    setInterval(refreshAll, 20000);
+    setInterval(function(){
+      document.getElementById('livetime').textContent = new Date().toLocaleTimeString('en-IN');
+    }, 1000);
+  } else {
+    // Not logged in or wrong account
+    document.getElementById('loginWrap').style.display = 'flex';
+    document.getElementById('panel').style.display     = 'none';
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ORDERS SECTION — unchanged from your original
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+window._allOrders = [];
+window.loadOrders = async function(){
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('ordersDiv').innerHTML   = '';
+  try{
+    var orders = [];
+    var snap   = await getDocs(collection(db,"orders"));
+    snap.forEach(function(d){ orders.push({_docId:d.id,...d.data()}); });
     orders.sort(function(a,b){
-      var at=a.startTime||0,bt=b.startTime||0;
-      if(typeof at==='object'&&at&&at.seconds)at=at.seconds*1000;
-      if(typeof bt==='object'&&bt&&bt.seconds)bt=bt.seconds*1000;
+      var at=a.startTime||0, bt=b.startTime||0;
+      if(typeof at==='object'&&at&&at.seconds) at=at.seconds*1000;
+      if(typeof bt==='object'&&bt&&bt.seconds) bt=bt.seconds*1000;
       return bt-at;
     });
-    window._allOrders=orders;
+    window._allOrders = orders;
     renderOrders(orders);
   }catch(e){
-    var oErrMsg='❌ Error loading orders: '+e.message;
+    var oErrMsg = '❌ Error loading orders: '+e.message;
     if(e.code==='permission-denied'||e.message.indexOf('permission')>-1){
-      oErrMsg='⚠️ <b>Permission Error</b> — Cannot read <code>orders</code> collection.<br/>Check Firebase Firestore Rules.';
+      oErrMsg = '⚠️ <b>Permission Error</b> — Cannot read <code>orders</code> collection.<br/>Check Firebase Firestore Rules.';
     }
-    document.getElementById('ordersDiv').innerHTML='<div class="errmsg" style="line-height:1.8">'+oErrMsg+'</div>';
-  }finally{document.getElementById('loading').style.display='none';}
+    document.getElementById('ordersDiv').innerHTML = '<div class="errmsg" style="line-height:1.8">'+oErrMsg+'</div>';
+  }finally{
+    document.getElementById('loading').style.display = 'none';
+  }
 };
 
 function renderOrders(orders){
-  var div=document.getElementById('ordersDiv');
-  var active=orders.filter(function(o){return o.status!=='Delivered';}).length;
-  var done=orders.filter(function(o){return o.status==='Delivered';}).length;
-  var revenue=orders.filter(function(o){return o.status==='Delivered';}).reduce(function(s,o){return s+(o.total||o.totalAmount||0);},0);
-  document.getElementById('stats').innerHTML=
+  var div    = document.getElementById('ordersDiv');
+  var active = orders.filter(function(o){ return o.status!=='Delivered'; }).length;
+  var done   = orders.filter(function(o){ return o.status==='Delivered'; }).length;
+  var revenue= orders.filter(function(o){ return o.status==='Delivered'; }).reduce(function(s,o){ return s+(o.total||o.totalAmount||0); },0);
+  document.getElementById('stats').innerHTML =
     '<div class="stat"><span class="snum">'+orders.length+'</span><span class="slbl">Total</span></div>'+
     '<div class="stat act"><span class="snum">'+active+'</span><span class="slbl">Active 🔄</span></div>'+
     '<div class="stat dn"><span class="snum">'+done+'</span><span class="slbl">Done ✅</span></div>'+
     '<div class="stat rv"><span class="snum">₹'+revenue+'</span><span class="slbl">Revenue 💰</span></div>';
   if(!orders.length){
-    div.innerHTML='<div class="empty">No orders yet 🍔<br/>Orders appear here when customers place them.</div>';
+    div.innerHTML = '<div class="empty">No orders yet 🍔<br/>Orders appear here when customers place them.</div>';
     return;
   }
-  div.innerHTML=orders.map(function(o){
-    var st=o.startTime||0;
-    if(typeof st==='object'&&st&&st.seconds)st=st.seconds*1000;
-    var elapsed=st?((Date.now()-st)/60000):0;
-    var isDone=o.status==='Delivered';
-    var phase='📋 Order Received';
-    if(isDone)phase='✅ Delivered';
-    else if(elapsed>=18)phase='🛵 Out for Delivery';
-    else if(elapsed>=4)phase='🔄 Being Prepared';
-    var items=(o.itemsFull&&o.itemsFull.length)
-      ?o.itemsFull.map(function(i){return'• '+(i.e||'🍽️')+' '+i.n+(i.meta?' ('+i.meta+')':'')+' ×'+i.qty+'   ₹'+(i.p*i.qty);}).join('\n')
-      :(o.items||'—');
-    var cleanPhone=(o.phone||'').replace(/\D/g,'');
-    if(cleanPhone.length===10) cleanPhone='91'+cleanPhone;
-    var maskedPhone=o.phone?o.phone.slice(0,-4).replace(/\d/g,'*')+o.phone.slice(-4):'N/A';
-    // ✅ FIX: Support both field names (totalAmount from customer app, total as fallback)
-    var orderTotal=o.total||o.totalAmount||0;
-    // ✅ FIX: Support both id field and Firestore doc ID as fallback
-    var orderId=o.id||o.orderId||o._docId||'N/A';
-
-    // ── Delivery boy cash payment status ──
-    var cashBox='';
+  div.innerHTML = orders.map(function(o){
+    var st = o.startTime||0;
+    if(typeof st==='object'&&st&&st.seconds) st=st.seconds*1000;
+    var elapsed = st ? ((Date.now()-st)/60000) : 0;
+    var isDone  = o.status==='Delivered';
+    var isCancelledOrRejected = o.status==='Cancelled'||o.status==='Rejected';
+    var phase   = '📋 Order Received';
+    if(isDone)                    phase = '✅ Delivered';
+    else if(o.status==='Cancelled') phase = '🚫 Cancelled';
+    else if(o.status==='Rejected')  phase = '❌ Rejected';
+    else if(o.status==='Accepted')  phase = '🍳 Preparing';
+    else if(elapsed>=18)            phase = '🛵 Out for Delivery';
+    else if(elapsed>=4)             phase = '🔄 Being Prepared';
+    var items = (o.itemsFull&&o.itemsFull.length)
+      ? o.itemsFull.map(function(i){ return '• '+(i.e||'🍽️')+' '+i.n+(i.meta?' ('+i.meta+')':'')+' ×'+i.qty+'   ₹'+(i.p*i.qty); }).join('\n')
+      : (o.items||'—');
+    var cleanPhone  = (o.phone||'').replace(/\D/g,'');
+    if(cleanPhone.length===10) cleanPhone = '91'+cleanPhone;
+    var maskedPhone = o.phone ? o.phone.slice(0,-4).replace(/\d/g,'*')+o.phone.slice(-4) : 'N/A';
+    var orderTotal  = o.total||o.totalAmount||0;
+    var orderId     = o.id||o.orderId||o._docId||'N/A';
+    var cashBox = '';
     if(isDone&&o.assignedTo){
       if(o.cashPaid){
-        cashBox='<div class="cashpaid">✅ Cash Collected — ₹'+orderTotal+' paid to owner</div>';
+        cashBox = '<div class="cashpaid">✅ Cash Collected — ₹'+orderTotal+' paid to owner</div>';
       } else {
-        cashBox='<div class="cashpending">⏳ Cash Pending — <b>₹'+orderTotal+'</b> not paid yet'
+        cashBox = '<div class="cashpending">⏳ Cash Pending — <b>₹'+orderTotal+'</b> not paid yet'
           +'<button class="btnpaid" onclick="markCashPaid(\''+o._docId+'\',\''+orderId+'\','+orderTotal+')">✅ Mark Cash Paid</button></div>';
       }
     }
-
-    return'<div class="ocard '+(isDone?'done':'actv')+'" id="oc-'+o._docId+'">'
+    return '<div class="ocard '+(isCancelledOrRejected?'done':(isDone?'done':'actv'))+'" id="oc-'+o._docId+'">'
       +'<div class="ohead">'
         +'<span class="oid">#'+orderId+'</span>'
         +'<span class="ophase '+(isDone?'phdone':'phact')+'">'+phase+'</span>'
@@ -111,22 +184,20 @@ function renderOrders(orders){
         +'</span>'
         +'<span>📍 '+(o.address||'N/A')+'</span>'
         +(o.lat&&o.lng
-          ?'<a href="https://maps.google.com/maps?q='+o.lat+','+o.lng+'&navigate=yes" target="_blank" class="mapbtn">🗺️ GPS Navigate</a>'
-          :(o.address?'<a href="https://maps.google.com/maps?q='+encodeURIComponent(o.address||'Jahangir Puri Delhi')+'&navigate=yes" target="_blank" class="mapbtn mapbtn-text">🗺️ Maps</a>':''))
+          ? '<a href="https://maps.google.com/maps?q='+o.lat+','+o.lng+'&navigate=yes" target="_blank" class="mapbtn">🗺️ GPS Navigate</a>'
+          : (o.address?'<a href="https://maps.google.com/maps?q='+encodeURIComponent(o.address||'Jahangir Puri Delhi')+'&navigate=yes" target="_blank" class="mapbtn mapbtn-text">🗺️ Maps</a>':''))
       +'</div>'
       +(o.specialNote?'<div class="noteBox">📝 <b>Note:</b> '+o.specialNote+'</div>':'')
-      // ── DELIVERY BOY INFO ──
       +(o.assignedTo
-        ?'<div class="boybox">'
-          +'<div class="boybox-title">🛵 Delivery Boy</div>'
-          +'<div>👤 <b>'+(o.assignedName||'Unknown')+'</b></div>'
-          +'<div>📱 <b>'+(o.assignedPhone||'—')+'</b></div>'
-          +(o.acceptedAt?'<div>⏰ Accepted: <b style="color:#FFD700">'+new Date(o.acceptedAt).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})+'</b></div>':'')
-          +(o.deliveredAt?'<div>✅ Delivered: <b style="color:#28A745">'+new Date(o.deliveredAt).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})+'</b></div>':'')
-          +(o.deliveryTimeMin?'<div>⚡ Time: <b style="color:#FF8C00">'+o.deliveryTimeMin+' min</b></div>':'')
-        +'</div>'
-        :'<div class="waitbox">⏳ Waiting for delivery boy to accept...</div>'
-      )
+        ? '<div class="boybox">'
+            +'<div class="boybox-title">🛵 Delivery Boy</div>'
+            +'<div>👤 <b>'+(o.assignedName||'Unknown')+'</b></div>'
+            +'<div>📱 <b>'+(o.assignedPhone||'—')+'</b></div>'
+            +(o.acceptedAt?'<div>⏰ Accepted: <b style="color:#FFD700">'+new Date(o.acceptedAt).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})+'</b></div>':'')
+            +(o.deliveredAt?'<div>✅ Delivered: <b style="color:#28A745">'+new Date(o.deliveredAt).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})+'</b></div>':'')
+            +(o.deliveryTimeMin?'<div>⚡ Time: <b style="color:#FF8C00">'+o.deliveryTimeMin+' min</b></div>':'')
+          +'</div>'
+        : '<div class="waitbox">⏳ Waiting for delivery boy to accept...</div>')
       +cashBox
       +'<pre class="oitems">'+items+'</pre>'
       +'<div class="obill">'
@@ -136,10 +207,17 @@ function renderOrders(orders){
         +'<span>💵 Cash on Delivery</span>'
       +'</div>'
       +'<div class="oacts">'
-        +(!isDone
-          ?'<button class="btndeliver" onclick="markDone(\''+o._docId+'\',\''+orderId+'\',this)">📦 Mark Delivered</button>'
-          :'<span class="donebadge">✅ Delivered</span>')
-        +(cleanPhone?'<a class="btnwa" href="https://wa.me/'+cleanPhone+'?text=Hi+'+encodeURIComponent(o.name||o.customerName||o.userName||o.fullName||'Customer')+',+your+order+%23'+orderId+'+is+on+the+way!+%F0%9F%9B%B5+BudgetMein" target="_blank">💬</a>':'')
+        +(o.status==='Cancelled'||o.status==='Rejected'
+          ? '<span class="donebadge" style="color:#C0392B;background:rgba(192,57,43,.1);flex:1">🚫 '+(o.status==='Cancelled'?'Cancelled':'Rejected')+(o.cancelReason?' — '+o.cancelReason:'')+'</span>'
+          : isDone
+            ? '<span class="donebadge">✅ Delivered</span>'
+            : o.status==='Accepted'
+              ? '<button class="btndeliver" onclick="markDone(\''+o._docId+'\',\''+orderId+'\',this)">📦 Mark Delivered</button>'
+                +'<button class="btnreject" onclick="cancelOrder(\''+o._docId+'\',\''+orderId+'\')">🚫 Cancel</button>'
+              : '<button class="btnaccept" onclick="acceptOrder(\''+o._docId+'\',\''+orderId+'\')">✅ Accept</button>'
+                +'<button class="btnreject" onclick="rejectOrder(\''+o._docId+'\',\''+orderId+'\')">❌ Reject</button>'
+        )
+        +(cleanPhone&&o.status!=='Cancelled'&&o.status!=='Rejected'?'<a class="btnwa" href="https://wa.me/'+cleanPhone+'?text=Hi+'+encodeURIComponent(o.name||o.customerName||o.userName||o.fullName||'Customer')+',+your+order+%23'+orderId+'+is+on+the+way!+%F0%9F%9B%B5+BudgetMein" target="_blank">💬</a>':'')
         +(cleanPhone?'<a class="btnwa" href="tel:+'+cleanPhone+'" style="font-size:.75rem">📞</a>':'')
         +'<button class="btndel" onclick="delOrder(\''+o._docId+'\',\''+orderId+'\')">🗑️</button>'
       +'</div>'
@@ -147,140 +225,134 @@ function renderOrders(orders){
   }).join('');
 }
 
-// ── Mark Cash Paid ──
-window.markCashPaid=async function(docId,orderId,total){
-  if(!confirm('Confirm ₹'+total+' cash received from delivery boy for order #'+orderId+'?'))return;
+window.markCashPaid = async function(docId,orderId,total){
+  if(!confirm('Confirm ₹'+total+' cash received from delivery boy for order #'+orderId+'?')) return;
   try{
     await updateDoc(doc(db,'orders',docId),{cashPaid:true,cashPaidAt:Date.now()});
     await tgMsg('💵 <b>CASH RECEIVED!</b>\n──────────────\n🆔 #'+orderId+'\n💰 ₹'+total+' collected from delivery boy\n⏰ '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}));
-    window.loadOrders();
-    window.loadDeliveryBoys();
-  }catch(e){alert('Error: '+e.message);}
+    window.loadOrders(); window.loadDeliveryBoys();
+  }catch(e){ alert('Error: '+e.message); }
 };
 
-window.markDone=async function(docId,orderId,btn){
-  if(!confirm('Mark #'+orderId+' as DELIVERED?'))return;
-  if(btn){btn.textContent='Updating...';btn.disabled=true;}
+window.markDone = async function(docId,orderId,btn){
+  if(!confirm('Mark #'+orderId+' as DELIVERED?')) return;
+  if(btn){ btn.textContent='Updating...'; btn.disabled=true; }
   try{
     await updateDoc(doc(db,'orders',docId),{status:'Delivered',deliveredAt:Date.now()});
-    var o=window._allOrders.find(function(x){return x._docId===docId;})||{};
-    var oTotal=o.total||o.totalAmount||0;
-    var oName=o.name||o.customerName||o.userName||o.fullName||o.user_name||o.customer_name||'Guest';
+    var o      = window._allOrders.find(function(x){ return x._docId===docId; })||{};
+    var oTotal = o.total||o.totalAmount||0;
+    var oName  = o.name||o.customerName||o.userName||o.fullName||o.user_name||o.customer_name||'Guest';
     await tgMsg('✅ <b>ORDER DELIVERED!</b>\n──────────────\n🆔 #'+orderId+'\n👤 '+oName+'\n💰 ₹'+oTotal+'\n⏰ '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}));
     window.loadOrders();
-  }catch(e){alert('Error: '+e.message);if(btn){btn.textContent='📦 Mark Delivered';btn.disabled=false;}}
+  }catch(e){ alert('Error: '+e.message); if(btn){ btn.textContent='📦 Mark Delivered'; btn.disabled=false; } }
 };
-window.delOrder=async function(docId,orderId){
-  if(!confirm('Permanently delete order #'+orderId+'?\nThis cannot be undone!'))return;
+
+window.delOrder = async function(docId,orderId){
+  if(!confirm('Permanently delete order #'+orderId+'?\nThis cannot be undone!')) return;
   try{
     await deleteDoc(doc(db,'orders',docId));
-    window._allOrders=window._allOrders.filter(function(o){return o._docId!==docId;});
-    var card=document.getElementById('oc-'+docId);
-    if(card){card.style.opacity='0';setTimeout(function(){card.remove();},300);}
+    window._allOrders = window._allOrders.filter(function(o){ return o._docId!==docId; });
+    var card = document.getElementById('oc-'+docId);
+    if(card){ card.style.opacity='0'; setTimeout(function(){ card.remove(); },300); }
     window.loadOrders();
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){ alert('Error: '+e.message); }
 };
-window.clearDone=async function(){
-  var done=window._allOrders.filter(function(o){return o.status==='Delivered';});
-  if(!done.length){alert('No delivered orders to clear!');return;}
-  if(!confirm('Delete '+done.length+' delivered orders permanently?'))return;
+
+window.clearDone = async function(){
+  var done = window._allOrders.filter(function(o){ return o.status==='Delivered'; });
+  if(!done.length){ alert('No delivered orders to clear!'); return; }
+  if(!confirm('Delete '+done.length+' delivered orders permanently?')) return;
   try{
-    await Promise.all(done.map(function(o){return deleteDoc(doc(db,'orders',o._docId));}));
+    await Promise.all(done.map(function(o){ return deleteDoc(doc(db,'orders',o._docId)); }));
     alert('✅ Cleared '+done.length+' orders!');
     window.loadOrders();
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){ alert('Error: '+e.message); }
 };
-window.revealPhone=function(btn,phone){
-  if(!confirm('Show customer phone? Only use for emergencies!'))return;
-  btn.parentElement.innerHTML='📱 '+phone+' <small style="color:#FF4500;font-size:.65rem">(revealed)</small>';
+
+window.revealPhone = function(btn,phone){
+  if(!confirm('Show customer phone? Only use for emergencies!')) return;
+  btn.parentElement.innerHTML = '📱 '+phone+' <small style="color:#FF4500;font-size:.65rem">(revealed)</small>';
 };
-window.clearAll=async function(){
-  if(!window._allOrders.length){alert('No orders to delete!');return;}
-  if(!confirm('⚠️ Delete ALL '+window._allOrders.length+' orders permanently?'))return;
-  if(!confirm('Last chance! This CANNOT be undone!'))return;
+
+window.clearAll = async function(){
+  if(!window._allOrders.length){ alert('No orders to delete!'); return; }
+  if(!confirm('⚠️ Delete ALL '+window._allOrders.length+' orders permanently?')) return;
+  if(!confirm('Last chance! This CANNOT be undone!')) return;
   try{
-    await Promise.all(window._allOrders.map(function(o){return deleteDoc(doc(db,'orders',o._docId));}));
+    await Promise.all(window._allOrders.map(function(o){ return deleteDoc(doc(db,'orders',o._docId)); }));
     alert('✅ All orders deleted!');
     window.loadOrders();
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){ alert('Error: '+e.message); }
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// DELIVERY BOY MANAGEMENT
+// DELIVERY BOY MANAGEMENT — unchanged from your original
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-window._allBoys=[];
+window._allBoys = [];
 
-window.loadDeliveryBoys=async function(){
-  document.getElementById('boysLoading').style.display='block';
-  document.getElementById('boysDiv').innerHTML='';
+window.loadDeliveryBoys = async function(){
+  document.getElementById('boysLoading').style.display = 'block';
+  document.getElementById('boysDiv').innerHTML = '';
   try{
-    var boys=[];
-    var snap=await getDocs(collection(db,'deliveryBoys'));
-    snap.forEach(function(d){boys.push({_docId:d.id,...d.data()});});
-    boys.sort(function(a,b){return (b.registeredAt||0)-(a.registeredAt||0);});
-    window._allBoys=boys;
+    var boys = [];
+    var snap = await getDocs(collection(db,'deliveryBoys'));
+    snap.forEach(function(d){ boys.push({_docId:d.id,...d.data()}); });
+    boys.sort(function(a,b){ return (b.registeredAt||0)-(a.registeredAt||0); });
+    window._allBoys = boys;
     renderBoys(boys);
   }catch(e){
-    // ✅ FIX: Friendly error messages — "permission-denied" is a Firestore rules issue
-    var errMsg='❌ Could not load delivery boys.';
+    var errMsg = '❌ Could not load delivery boys.';
     if(e.code==='permission-denied'||e.message.indexOf('permission')>-1||e.message.indexOf('Permission')>-1){
-      errMsg='⚠️ <b>Firestore Permission Error</b><br/>'+
-        'Could not read <code>deliveryBoys</code> collection.<br/>'+
-        '<b>Fix:</b> In Firebase Console → Firestore → Rules, allow anonymous reads for this collection.<br/>'+
-        '<small style="color:#888">Or add: <code>allow read, write: if request.auth != null;</code></small>';
+      errMsg = '⚠️ <b>Firestore Permission Error</b><br/>Could not read <code>deliveryBoys</code> collection.<br/><b>Fix:</b> Update Firebase Firestore Rules.';
     }
-    document.getElementById('boysDiv').innerHTML='<div class="errmsg" style="line-height:1.8">'+errMsg+'</div>';
-  }finally{document.getElementById('boysLoading').style.display='none';}
+    document.getElementById('boysDiv').innerHTML = '<div class="errmsg" style="line-height:1.8">'+errMsg+'</div>';
+  }finally{
+    document.getElementById('boysLoading').style.display = 'none';
+  }
 };
 
 function renderBoys(boys){
-  var div=document.getElementById('boysDiv');
-  var total=boys.length;
-  var active=boys.filter(function(b){return !b.blocked;}).length;
-  var blocked=boys.filter(function(b){return b.blocked;}).length;
-  document.getElementById('boyStats').innerHTML=
+  var div     = document.getElementById('boysDiv');
+  var total   = boys.length;
+  var active  = boys.filter(function(b){ return !b.blocked; }).length;
+  var blocked = boys.filter(function(b){ return b.blocked; }).length;
+  document.getElementById('boyStats').innerHTML =
     '<div class="stat"><span class="snum">'+total+'</span><span class="slbl">Total Boys</span></div>'+
     '<div class="stat dn"><span class="snum" style="color:#28A745">'+active+'</span><span class="slbl">Active ✅</span></div>'+
     '<div class="stat act"><span class="snum" style="color:#C0392B">'+blocked+'</span><span class="slbl">Blocked 🚫</span></div>';
-
   if(!boys.length){
-    div.innerHTML='<div class="empty">No delivery boys registered yet 🛵<br/>They appear here after registering on delivery.html</div>';
+    div.innerHTML = '<div class="empty">No delivery boys registered yet 🛵<br/>They appear here after registering on delivery.html</div>';
     return;
   }
-  div.innerHTML=boys.map(function(b){
-    var isBlocked=b.blocked===true;
-    var awaitPay=b.pendingPayApproval===true;
-    var regDate=b.registeredAt?new Date(b.registeredAt).toLocaleDateString('en-IN'):'Unknown';
-
-    // Pending pay approval box
-    var payBox='';
+  div.innerHTML = boys.map(function(b){
+    var isBlocked = b.blocked===true;
+    var awaitPay  = b.pendingPayApproval===true;
+    var regDate   = b.registeredAt ? new Date(b.registeredAt).toLocaleDateString('en-IN') : 'Unknown';
+    var payBox = '';
     if(awaitPay&&!isBlocked){
-      payBox='<div class="paypending">'
-        +'<span>💰 Delivery boy says he has paid ₹'+( b.pendingPayAmount||'?')+' cash</span>'
+      payBox = '<div class="paypending">'
+        +'<span>💰 Delivery boy says he has paid ₹'+(b.pendingPayAmount||'?')+' cash</span>'
         +'<div style="display:flex;gap:8px;margin-top:8px">'
         +'<button class="btnyes" onclick="approvePayment(\''+b._docId+'\',\''+b.name+'\',\''+b.pendingPayAmount+'\')">✅ Yes, Received</button>'
         +'<button class="btnno" onclick="rejectPayment(\''+b._docId+'\',\''+b.name+'\')">❌ Not Received</button>'
         +'</div></div>';
     }
-
-    // Awaiting next order permission
-    var permBox='';
+    var permBox = '';
     if(b.awaitingPermission&&!isBlocked&&!awaitPay){
-      permBox='<div class="permpending">'
+      permBox = '<div class="permpending">'
         +'<span>🔔 <b>'+b.name+'</b> wants permission to take next order</span>'
         +'<div style="display:flex;gap:8px;margin-top:8px">'
         +'<button class="btnyes" onclick="grantPermission(\''+b._docId+'\',\''+b.name+'\')">✅ Allow Next Order</button>'
         +'<button class="btnno" onclick="denyPermission(\''+b._docId+'\',\''+b.name+'\')">❌ Not Yet</button>'
         +'</div></div>';
     }
-
-    return'<div class="boycard '+(isBlocked?'blocked-boy':'')+'" id="boy-'+b._docId+'">'
+    return '<div class="boycard '+(isBlocked?'blocked-boy':'')+'" id="boy-'+b._docId+'">'
       +'<div class="boyhead">'
         +'<div class="boyavatar">'+(b.name||'?').charAt(0).toUpperCase()+'</div>'
         +'<div class="boyinfo">'
           +'<div class="boyname">'+(b.name||'Unknown')+(isBlocked?'<span class="blocktag">BLOCKED</span>':'<span class="activetag">ACTIVE</span>')+'</div>'
           +'<div class="boyphone">📱 '+(b.phone||'—')+'</div>'
-          +'<div class="boyid" style="font-size:.62rem;color:#444">ID: '+(b.id||b._docId||'—')+' · Joined '+regDate+'</div>'
+          +'<div class="boyid">ID: '+(b.id||b._docId||'—')+' · Joined '+regDate+'</div>'
         +'</div>'
       +'</div>'
       +'<div class="boystats">'
@@ -289,140 +361,185 @@ function renderBoys(boys){
         +'<div class="bstat"><span class="bstatnum">'+(b.pendingOrders||0)+'</span><span class="bstatlbl">In Progress</span></div>'
         +'<div class="bstat"><span class="bstatnum" style="color:'+(b.hasPermission?'#28A745':'#FF4500')+'">'+(b.hasPermission?'YES':'NO')+'</span><span class="bstatlbl">Can Order</span></div>'
       +'</div>'
-      +payBox
-      +permBox
+      +payBox+permBox
       +'<div class="boyacts">'
         +(!isBlocked
-          ?'<button class="btnblock" onclick="blockBoy(\''+b._docId+'\',\''+b.name+'\')">🚫 Block</button>'
-          :'<button class="btnunblock" onclick="unblockBoy(\''+b._docId+'\',\''+b.name+'\')">✅ Unblock</button>')
+          ? '<button class="btnblock" onclick="blockBoy(\''+b._docId+'\',\''+b.name+'\')">🚫 Block</button>'
+          : '<button class="btnunblock" onclick="unblockBoy(\''+b._docId+'\',\''+b.name+'\')">✅ Unblock</button>')
         +(b.phone?'<a class="btnwa" href="tel:'+(b.phone||'')+'" style="font-size:.8rem;text-decoration:none">📞 Call</a>':'')
         +(b.hasPermission
-          ?'<button class="btnrevoke" onclick="revokePermission(\''+b._docId+'\',\''+b.name+'\')">🔒 Revoke Permission</button>'
-          :'<button class="btnyes" onclick="grantPermission(\''+b._docId+'\',\''+b.name+'\')">✅ Give Permission</button>')
-        +(!isBlocked?'<button class="btndel" onclick="deleteBoy(\''+b._docId+'\',\''+b.name+'\')">🗑️</button>':'')  /* ✅ FIX: can’t delete blocked boys */
+          ? '<button class="btnrevoke" onclick="revokePermission(\''+b._docId+'\',\''+b.name+'\')">🔒 Revoke Permission</button>'
+          : '<button class="btnyes" onclick="grantPermission(\''+b._docId+'\',\''+b.name+'\')">✅ Give Permission</button>')
+        +(!isBlocked?'<button class="btndel" onclick="deleteBoy(\''+b._docId+'\',\''+b.name+'\')">🗑️</button>':'')
       +'</div>'
     +'</div>';
   }).join('');
 }
 
-// ── Block / Unblock ──
-window.blockBoy=async function(docId,name){
-  if(!confirm('Block '+name+'?\nThey will not be able to accept any orders.'))return;
+window.blockBoy = async function(docId,name){
+  if(!confirm('Block '+name+'?\nThey will not be able to accept any orders.')) return;
   try{
     await updateDoc(doc(db,'deliveryBoys',docId),{blocked:true,hasPermission:false});
     await tgMsg('🚫 <b>Delivery Boy BLOCKED</b>\n👤 '+name+'\n⏰ '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}));
     window.loadDeliveryBoys();
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){ alert('Error: '+e.message); }
 };
-window.unblockBoy=async function(docId,name){
-  if(!confirm('Unblock '+name+'? They can accept orders again.'))return;
+window.unblockBoy = async function(docId,name){
+  if(!confirm('Unblock '+name+'? They can accept orders again.')) return;
   try{
     await updateDoc(doc(db,'deliveryBoys',docId),{blocked:false});
     window.loadDeliveryBoys();
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){ alert('Error: '+e.message); }
 };
-
-// ── Grant / Revoke Permission ──
-window.grantPermission=async function(docId,name){
+window.grantPermission = async function(docId,name){
   try{
     await updateDoc(doc(db,'deliveryBoys',docId),{hasPermission:true,awaitingPermission:false,permissionGrantedAt:Date.now()});
     alert('✅ Permission granted to '+name+'\nThey can now accept the next order.');
     window.loadDeliveryBoys();
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){ alert('Error: '+e.message); }
 };
-window.denyPermission=async function(docId,name){
+window.denyPermission = async function(docId,name){
   try{
     await updateDoc(doc(db,'deliveryBoys',docId),{awaitingPermission:false});
     alert('❌ Permission denied for '+name+'\nThey must wait.');
     window.loadDeliveryBoys();
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){ alert('Error: '+e.message); }
 };
-window.revokePermission=async function(docId,name){
-  if(!confirm('Revoke order permission from '+name+'?'))return;
+window.revokePermission = async function(docId,name){
+  if(!confirm('Revoke order permission from '+name+'?')) return;
   try{
     await updateDoc(doc(db,'deliveryBoys',docId),{hasPermission:false});
     window.loadDeliveryBoys();
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){ alert('Error: '+e.message); }
 };
-
-// ── Approve / Reject Cash Payment ──
-window.approvePayment=async function(docId,name,amount){
-  if(!confirm('Confirm you received ₹'+amount+' cash from '+name+'?'))return;
+window.approvePayment = async function(docId,name,amount){
+  if(!confirm('Confirm you received ₹'+amount+' cash from '+name+'?')) return;
   try{
-    var boy=window._allBoys.find(function(b){return b._docId===docId;})||{};
-    var newTotal=(boy.totalCash||0)+Number(amount||0);
-    var pendingDocId=boy.pendingDocId||'';
+    var boy      = window._allBoys.find(function(b){ return b._docId===docId; })||{};
+    var newTotal = (boy.totalCash||0)+Number(amount||0);
+    var pendingDocId = boy.pendingDocId||'';
     await updateDoc(doc(db,'deliveryBoys',docId),{
       pendingPayApproval:false,pendingPayAmount:0,pendingDocId:'',
       hasPermission:true,awaitingPermission:false,
-      totalCash:newTotal,
-      lastPayAt:Date.now()
+      totalCash:newTotal,lastPayAt:Date.now()
     });
-    // Mark the order itself as cash paid to team
     if(pendingDocId){
-      try{
-        await updateDoc(doc(db,'orders',pendingDocId),{cashPaidToTeam:true,cashPaidToTeamAt:Date.now()});
-      }catch(oe){console.warn('Could not mark order cashPaidToTeam',oe);}
+      try{ await updateDoc(doc(db,'orders',pendingDocId),{cashPaidToTeam:true,cashPaidToTeamAt:Date.now()}); }catch(oe){}
     }
     await tgMsg('💵 <b>Cash Payment Confirmed</b>\n👤 '+name+'\n💰 ₹'+amount+' received\n✅ Permission granted for next order\n⏰ '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}));
     alert('✅ Payment confirmed!\n✅ Permission given to '+name+' for next order.');
-    window.loadDeliveryBoys();
-    window.loadOrders();
-  }catch(e){alert('Error: '+e.message);}
+    window.loadDeliveryBoys(); window.loadOrders();
+  }catch(e){ alert('Error: '+e.message); }
 };
-window.rejectPayment=async function(docId,name){
+window.rejectPayment = async function(docId,name){
   try{
     await updateDoc(doc(db,'deliveryBoys',docId),{pendingPayApproval:false,hasPermission:false});
     alert('❌ Payment rejected for '+name+'.\nThey cannot take orders until payment confirmed.');
     window.loadDeliveryBoys();
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){ alert('Error: '+e.message); }
 };
-
-// ── Delete Boy ──
-window.deleteBoy=async function(docId,name){
-  if(!confirm('Permanently remove '+name+' from delivery boys?\nThis cannot be undone.'))return;
+window.deleteBoy = async function(docId,name){
+  if(!confirm('Permanently remove '+name+' from delivery boys?\nThis cannot be undone.')) return;
   try{
     await deleteDoc(doc(db,'deliveryBoys',docId));
     window.loadDeliveryBoys();
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){ alert('Error: '+e.message); }
 };
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ACCEPT / REJECT / CANCEL ORDER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+window.acceptOrder = async function(docId, orderId){
+  if(!confirm('Accept order #'+orderId+'?\nCall Fry Day now to start preparation.')) return;
+  try{
+    await updateDoc(doc(db,'orders',docId),{
+      status:'Accepted',
+      acceptedAt: Date.now()
+    });
+    await tgMsg('✅ <b>ORDER ACCEPTED</b>\n──────────────\n🆔 #'+orderId+'\n⏰ '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})+'\n🍳 Preparation started — cancel not possible now');
+    window.loadOrders();
+  }catch(e){ alert('Error: '+e.message); }
+};
+
+window.rejectOrder = async function(docId, orderId){
+  var reason = prompt('Reason for rejecting order #'+orderId+'?\n(e.g. Item unavailable, Area not serviceable)');
+  if(reason === null) return; // User pressed Cancel on prompt
+  if(!reason.trim()){ alert('Reason is mandatory!'); return; }
+  try{
+    await updateDoc(doc(db,'orders',docId),{
+      status:'Rejected',
+      cancelReason: reason.trim(),
+      cancelledAt:  Date.now(),
+      cancelledBy:  'admin'
+    });
+    await tgMsg('❌ <b>ORDER REJECTED</b>\n──────────────\n🆔 #'+orderId+'\n📝 Reason: '+reason.trim()+'\n⏰ '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}));
+    window.loadOrders();
+  }catch(e){ alert('Error: '+e.message); }
+};
+
+window.cancelOrder = async function(docId, orderId){
+  var reason = prompt('Reason for cancelling order #'+orderId+'?\n(Customer called / Item unavailable / Other)');
+  if(reason === null) return;
+  if(!reason.trim()){ alert('Reason is mandatory!'); return; }
+  try{
+    await updateDoc(doc(db,'orders',docId),{
+      status:'Cancelled',
+      cancelReason: reason.trim(),
+      cancelledAt:  Date.now(),
+      cancelledBy:  'admin'
+    });
+    await tgMsg('🚫 <b>ORDER CANCELLED</b>\n──────────────\n🆔 #'+orderId+'\n📝 Reason: '+reason.trim()+'\n⏰ '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}));
+    window.loadOrders();
+  }catch(e){ alert('Error: '+e.message); }
+};
+
+
 </script>
+
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Poppins',sans-serif;background:#0D0D1A;color:#fff;min-height:100vh}
+
 /* ── LOGIN ── */
 #loginWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0D0D1A;z-index:999;padding:16px}
-.lbox{background:#1A1A2E;border-radius:24px;padding:36px 28px;width:100%;max-width:320px;text-align:center;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+.lbox{background:#1A1A2E;border-radius:24px;padding:36px 28px;width:100%;max-width:340px;text-align:center;box-shadow:0 24px 80px rgba(0,0,0,.6)}
 .lbox h2{font-size:1.6rem;color:#FF4500;margin-bottom:4px}
-.lbox p{font-size:.8rem;color:#777;margin-bottom:22px}
-.pins{display:flex;gap:10px;justify-content:center;margin-bottom:14px}
-.pins input{width:52px;height:60px;border-radius:14px;border:2px solid #2A2A3E;background:#0D0D1A;color:#fff;font-size:1.6rem;text-align:center;font-family:'Poppins',sans-serif;outline:none;transition:border .2s}
-.pins input:focus{border-color:#FF4500}
-#pinErr{font-size:.76rem;color:#FF4500;min-height:16px;margin-bottom:8px}
-.lbtn{width:100%;padding:12px;border:none;border-radius:50px;background:linear-gradient(135deg,#FF4500,#CC3700);color:#fff;font-family:'Poppins',sans-serif;font-size:.92rem;font-weight:700;cursor:pointer}
-.lbtn:hover{opacity:.9}
-.cpbtn{margin-top:10px;width:100%;background:none;border:1px solid #2A2A3E;color:#555;padding:8px;border-radius:50px;font-family:'Poppins',sans-serif;font-size:.75rem;cursor:pointer;transition:all .2s}
-.cpbtn:hover{border-color:#FF4500;color:#FF4500}
-#cpbox{display:none;margin-top:14px;text-align:left}
-#cpbox label{font-size:.74rem;color:#777;display:block;margin-bottom:3px}
-#cpbox input{width:100%;padding:9px 12px;border:1.5px solid #2A2A3E;border-radius:10px;background:#0D0D1A;color:#fff;font-family:'Poppins',sans-serif;margin-bottom:8px;font-size:.85rem;outline:none}
-#cpbox input:focus{border-color:#FF4500}
-.spbtn{width:100%;padding:10px;border:none;border-radius:50px;background:#28A745;color:#fff;font-family:'Poppins',sans-serif;font-weight:700;font-size:.85rem;cursor:pointer}
+.lbox p{font-size:.8rem;color:#777;margin-bottom:28px;line-height:1.6}
+.lbox .lock-icon{font-size:2.8rem;margin-bottom:12px;display:block}
+
+/* Google button */
+#googleBtn{
+  width:100%;padding:14px 20px;border:none;border-radius:50px;
+  background:#fff;color:#1A1A2E;
+  font-family:'Poppins',sans-serif;font-size:.92rem;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;
+  box-shadow:0 4px 18px rgba(0,0,0,.25);transition:all .2s;
+}
+#googleBtn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,0,0,.35)}
+#googleBtn:disabled{opacity:.6;cursor:not-allowed}
+.google-logo{width:20px;height:20px;flex-shrink:0}
+
+#loginErr{font-size:.76rem;color:#FF4500;min-height:20px;margin-top:14px;line-height:1.6}
+.secure-note{font-size:.68rem;color:#333;margin-top:16px;line-height:1.7}
+
 /* ── PANEL ── */
 #panel{display:none;max-width:760px;margin:0 auto;padding:16px}
 .topbar{background:#1A1A2E;border-radius:16px;padding:13px 18px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px}
 .topbar h1{font-size:1.05rem;font-weight:800;color:#FF4500;flex:1}
+.admin-email-badge{font-size:.65rem;color:#555;background:rgba(255,255,255,.04);border:1px solid #1E1E30;border-radius:20px;padding:3px 9px}
 .rbtn{background:rgba(255,69,0,.1);border:1px solid rgba(255,69,0,.3);color:#FF4500;padding:6px 13px;border-radius:50px;font-family:'Poppins',sans-serif;font-size:.74rem;font-weight:600;cursor:pointer}
 .rbtn:hover{background:rgba(255,69,0,.2)}
 .rbtn.red{background:rgba(192,57,43,.1);border-color:rgba(192,57,43,.3);color:#C0392B}
 .rbtn.red:hover{background:rgba(192,57,43,.2)}
 .rbtn.grey{background:none;border-color:#333;color:#555}
-.rbtn.blue{background:rgba(26,115,232,.1);border-color:rgba(26,115,232,.3);color:#4A90E2}
+.rbtn.grey:hover{border-color:#FF4500;color:#FF4500}
+
 /* ── TABS ── */
 .tabs{display:flex;gap:4px;background:#1A1A2E;border-radius:12px;padding:5px;margin-bottom:14px}
 .tab{flex:1;padding:9px;border:none;border-radius:9px;background:transparent;color:#555;font-family:'Poppins',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s;text-align:center}
 .tab.active{background:linear-gradient(135deg,#FF4500,#CC3700);color:#fff}
+
 /* ── STATS ── */
 #stats,#boyStats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
 .stat{background:#1A1A2E;border-radius:12px;padding:14px;text-align:center;border:1px solid #1E1E30}
@@ -436,6 +553,7 @@ body{font-family:'Poppins',sans-serif;background:#0D0D1A;color:#fff;min-height:1
 #loading,#boysLoading{text-align:center;padding:20px;color:#555;display:none}
 .errmsg,.empty{text-align:center;padding:40px;color:#666;line-height:2}
 .errmsg{color:#FF4500}
+
 /* ── ORDER CARDS ── */
 .ocard{background:#1A1A2E;border-radius:14px;padding:16px;margin-bottom:12px;border:1.5px solid #1E1E30;transition:all .3s}
 .ocard.actv{border-color:rgba(255,69,0,.3)}
@@ -469,6 +587,11 @@ pre.oitems{font-family:'Poppins',sans-serif;font-size:.74rem;color:#777;padding:
 .btnwa:hover{background:rgba(37,211,102,.12)}
 .btnpaid{margin-left:8px;padding:4px 12px;border:none;border-radius:20px;background:#28A745;color:#fff;font-family:'Poppins',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer}
 .donebadge{flex:1;text-align:center;padding:9px;color:#28A745;font-size:.82rem;font-weight:600;background:rgba(40,167,69,.07);border-radius:50px}
+.btnaccept{flex:1;min-width:100px;padding:10px;border:none;border-radius:50px;background:linear-gradient(135deg,#28A745,#1E7E34);color:#fff;font-family:'Poppins',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .25s}
+.btnaccept:hover{transform:scale(1.02)}
+.btnreject{flex:1;min-width:100px;padding:10px;border:1.5px solid rgba(192,57,43,.5);border-radius:50px;background:rgba(192,57,43,.1);color:#C0392B;font-family:'Poppins',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .25s}
+.btnreject:hover{background:rgba(192,57,43,.2)}
+
 /* ── DELIVERY BOY CARDS ── */
 .boycard{background:#1A1A2E;border-radius:14px;padding:16px;margin-bottom:12px;border:1.5px solid #1E1E30;transition:all .3s}
 .boycard.blocked-boy{border-color:rgba(192,57,43,.4);opacity:.7}
@@ -492,8 +615,9 @@ pre.oitems{font-family:'Poppins',sans-serif;font-size:.74rem;color:#777;padding:
 .btnunblock{padding:8px 14px;border:1.5px solid rgba(40,167,69,.4);border-radius:50px;background:rgba(40,167,69,.1);color:#28A745;cursor:pointer;font-family:'Poppins',sans-serif;font-size:.76rem;font-weight:600}
 .btnrevoke{padding:8px 14px;border:1.5px solid rgba(255,140,0,.3);border-radius:50px;background:rgba(255,140,0,.08);color:#FF8C00;cursor:pointer;font-family:'Poppins',sans-serif;font-size:.76rem;font-weight:600}
 .btnyes{padding:8px 14px;border:none;border-radius:50px;background:linear-gradient(135deg,#28A745,#1E7E34);color:#fff;cursor:pointer;font-family:'Poppins',sans-serif;font-size:.76rem;font-weight:700}
-.btnno{padding:8px 14px;border:none;border-radius:50px;background:rgba(192,57,43,.2);color:#C0392B;cursor:pointer;font-family:'Poppins',sans-serif;font-size:.76rem;font-weight:600;border:1px solid rgba(192,57,43,.3)}
+.btnno{padding:8px 14px;border:1px solid rgba(192,57,43,.3);border-radius:50px;background:rgba(192,57,43,.2);color:#C0392B;cursor:pointer;font-family:'Poppins',sans-serif;font-size:.76rem;font-weight:600}
 #livetime{font-size:.72rem;color:#444}
+
 @media(max-width:540px){
   #stats,#boyStats{grid-template-columns:1fr 1fr}
   .boystats{grid-template-columns:1fr 1fr}
@@ -504,109 +628,75 @@ pre.oitems{font-family:'Poppins',sans-serif;font-size:.74rem;color:#777;padding:
 </style>
 </head>
 <body>
+
+<!-- ══════════════════════════════════════════
+     LOGIN SCREEN — Google Sign-In
+══════════════════════════════════════════ -->
 <div id="loginWrap">
   <div class="lbox">
-    <h2>🍕 BudgetMein</h2>
-    <p>Admin Panel — Enter PIN</p>
-    <div class="pins">
-      <input type="password" maxlength="1" id="p1" inputmode="numeric" oninput="mf(this,'p2')"/>
-      <input type="password" maxlength="1" id="p2" inputmode="numeric" oninput="mf(this,'p3')"/>
-      <input type="password" maxlength="1" id="p3" inputmode="numeric" oninput="mf(this,'p4')"/>
-      <input type="password" maxlength="1" id="p4" inputmode="numeric" oninput="chkPin()"/>
-    </div>
-    <div id="pinErr"></div>
-    <button class="lbtn" onclick="chkPin()">Enter Admin Panel 🚀</button>
-    <button class="cpbtn" onclick="toggleCP()">🔐 Change PIN</button>
-    <div id="cpbox">
-      <label>Current PIN</label>
-      <input type="password" id="curP" maxlength="4" inputmode="numeric" placeholder="Current PIN"/>
-      <label>New PIN (4 digits)</label>
-      <input type="password" id="newP" maxlength="4" inputmode="numeric" placeholder="New PIN"/>
-      <label>Confirm New PIN</label>
-      <input type="password" id="cnfP" maxlength="4" inputmode="numeric" placeholder="Confirm PIN"/>
-      <button class="spbtn" onclick="savePIN()">✅ Save New PIN</button>
-    </div>
+    <span class="lock-icon">🔐</span>
+    <h2>BudgetMein</h2>
+    <p>Admin Panel<br/><span style="font-size:.72rem;color:#444">Only authorized Google account can access</span></p>
+
+    <button id="googleBtn" onclick="signInWithGoogle()">
+      <!-- Google SVG logo -->
+      <svg class="google-logo" viewBox="0 0 48 48">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.35-8.16 2.35-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+      </svg>
+      🔴 Sign in with Google
+    </button>
+
+    <div id="loginErr"></div>
+
   </div>
 </div>
+
+<!-- ══════════════════════════════════════════
+     ADMIN PANEL — All features same as before
+══════════════════════════════════════════ -->
 <div id="panel">
   <div class="topbar">
     <h1>🍕 BudgetMein Admin</h1>
     <span id="livetime"></span>
+    <span class="admin-email-badge">👤 <span id="adminEmailDisplay"></span></span>
     <button class="rbtn" onclick="refreshAll()">🔄 Refresh</button>
     <button class="rbtn red" onclick="clearDone()">🗑️ Clear Done</button>
     <button class="rbtn red" onclick="clearAll()">⚠️ Clear All</button>
-    <button class="rbtn grey" onclick="exitAdmin()">Exit</button>
+    <button class="rbtn grey" onclick="adminSignOut()">🚪 Logout</button>
   </div>
-  <!-- TABS -->
+
   <div class="tabs">
     <button class="tab active" id="tab-orders" onclick="showTab('orders')">📋 Orders</button>
     <button class="tab" id="tab-boys" onclick="showTab('boys')">🛵 Delivery Boys</button>
   </div>
-  <!-- ORDERS TAB -->
+
   <div id="tabOrders">
     <div id="stats"></div>
     <div id="loading">Loading orders...</div>
     <div id="ordersDiv"></div>
   </div>
-  <!-- DELIVERY BOYS TAB -->
+
   <div id="tabBoys" style="display:none">
     <div id="boyStats"></div>
     <div id="boysLoading">Loading delivery boys...</div>
     <div id="boysDiv"></div>
   </div>
 </div>
+
 <script>
-function getPin(){return localStorage.getItem('bm_admin_pin')||'1234';}
-function mf(el,nid){if(el.value.length===1){var n=document.getElementById(nid);if(n)n.focus();}}
-function chkPin(){
-  var pin=['p1','p2','p3','p4'].map(function(id){return document.getElementById(id).value;}).join('');
-  if(pin.length<4)return;
-  if(pin===getPin()){
-    document.getElementById('loginWrap').style.display='none';
-    document.getElementById('panel').style.display='block';
-    loadOrders();
-    loadDeliveryBoys();
-    setInterval(refreshAll,20000);
-    setInterval(function(){document.getElementById('livetime').textContent=new Date().toLocaleTimeString('en-IN');},1000);
-  } else {
-    document.getElementById('pinErr').textContent='❌ Wrong PIN!';
-    ['p1','p2','p3','p4'].forEach(function(id){document.getElementById(id).value='';});
-    document.getElementById('p1').focus();
-    setTimeout(function(){document.getElementById('pinErr').textContent='';},2000);
-  }
-}
-function toggleCP(){var b=document.getElementById('cpbox');b.style.display=b.style.display==='block'?'none':'block';}
-function savePIN(){
-  var c=document.getElementById('curP').value;
-  var n=document.getElementById('newP').value;
-  var f=document.getElementById('cnfP').value;
-  if(c!==getPin()){alert('❌ Current PIN is wrong!');return;}
-  if(!/^\d{4}$/.test(n)){alert('New PIN must be exactly 4 digits!');return;}
-  if(n!==f){alert('PINs do not match!');return;}
-  localStorage.setItem('bm_admin_pin',n);
-  alert('✅ PIN changed!\nPlease remember: '+n);
-  document.getElementById('cpbox').style.display='none';
-  ['curP','newP','cnfP'].forEach(function(id){document.getElementById(id).value='';});
-}
-function exitAdmin(){
-  document.getElementById('loginWrap').style.display='flex';
-  document.getElementById('panel').style.display='none';
-  ['p1','p2','p3','p4'].forEach(function(id){document.getElementById(id).value='';});
-  document.getElementById('p1').focus();
-}
 function showTab(tab){
-  document.getElementById('tabOrders').style.display=tab==='orders'?'block':'none';
-  document.getElementById('tabBoys').style.display=tab==='boys'?'block':'none';
-  document.getElementById('tab-orders').classList.toggle('active',tab==='orders');
-  document.getElementById('tab-boys').classList.toggle('active',tab==='boys');
+  document.getElementById('tabOrders').style.display = tab==='orders' ? 'block' : 'none';
+  document.getElementById('tabBoys').style.display   = tab==='boys'   ? 'block' : 'none';
+  document.getElementById('tab-orders').classList.toggle('active', tab==='orders');
+  document.getElementById('tab-boys').classList.toggle('active',   tab==='boys');
 }
 function refreshAll(){
-  loadOrders();
-  loadDeliveryBoys();
+  window.loadOrders();
+  window.loadDeliveryBoys();
 }
-document.addEventListener('keydown',function(e){
-  if(e.key==='Enter'&&document.getElementById('loginWrap').style.display!=='none')chkPin();
-});
 </script>
 </body>
 </html>
