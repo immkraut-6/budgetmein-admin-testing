@@ -28,13 +28,13 @@ const db    = getFirestore(fbApp);
 const auth  = getAuth(fbApp);
 const provider = new GoogleAuthProvider();
 
-// ✅ SECURE: Token hidden in Vercel backend api/notify.js
+// SECURE: Token is in Vercel Environment Variables — not here
 async function tgMsg(text){
   try{
-    await fetch('/api/notify',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({kind:'order',message:text})
+    await fetch("/api/telegram-admin",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({text:text})
     });
   }catch(e){}
 }
@@ -144,15 +144,10 @@ function renderOrders(orders){
     if(typeof st==='object'&&st&&st.seconds) st=st.seconds*1000;
     var elapsed = st ? ((Date.now()-st)/60000) : 0;
     var isDone  = o.status==='Delivered';
-    var isCancelledOrRejected = o.status==='Cancelled'||o.status==='Rejected';
-    var isAccepted = o.status==='Accepted';
-    var phase   = '📋 Pending — Awaiting Accept';
-    if(isDone)                     phase = '✅ Delivered';
-    else if(o.status==='Cancelled') phase = '🚫 Cancelled';
-    else if(o.status==='Rejected')  phase = '❌ Rejected';
-    else if(isAccepted)             phase = '🍳 Preparing';
-    else if(elapsed>=18)            phase = '🛵 Out for Delivery';
-    else if(elapsed>=4)             phase = '🔄 Being Prepared';
+    var phase   = '📋 Order Received';
+    if(isDone)          phase = '✅ Delivered';
+    else if(elapsed>=18) phase = '🛵 Out for Delivery';
+    else if(elapsed>=4)  phase = '🔄 Being Prepared';
     var items = (o.itemsFull&&o.itemsFull.length)
       ? o.itemsFull.map(function(i){ return '• '+(i.e||'🍽️')+' '+i.n+(i.meta?' ('+i.meta+')':'')+' ×'+i.qty+'   ₹'+(i.p*i.qty); }).join('\n')
       : (o.items||'—');
@@ -170,7 +165,7 @@ function renderOrders(orders){
           +'<button class="btnpaid" onclick="markCashPaid(\''+o._docId+'\',\''+orderId+'\','+orderTotal+')">✅ Mark Cash Paid</button></div>';
       }
     }
-    return '<div class="ocard '+(isCancelledOrRejected||isDone?'done':'actv')+'" id="oc-'+o._docId+'">'
+    return '<div class="ocard '+(isDone?'done':'actv')+'" id="oc-'+o._docId+'">'
       +'<div class="ohead">'
         +'<span class="oid">#'+orderId+'</span>'
         +'<span class="ophase '+(isDone?'phdone':'phact')+'">'+phase+'</span>'
@@ -206,17 +201,10 @@ function renderOrders(orders){
         +'<span>💵 Cash on Delivery</span>'
       +'</div>'
       +'<div class="oacts">'
-        +(isCancelledOrRejected
-          ? '<span class="donebadge" style="background:rgba(192,57,43,.1);color:#C0392B;flex:1;font-size:.74rem">🚫 '+(o.status)+(o.cancelReason?' — '+o.cancelReason:'')+'</span>'
-          : isDone
-            ? '<span class="donebadge">✅ Delivered</span>'
-            : isAccepted
-              ? '<button class="btndeliver" onclick="markDone(\''+o._docId+'\',\''+orderId+'\',this)">📦 Mark Delivered</button>'
-                +'<button class="btnreject" onclick="cancelOrder(\''+o._docId+'\',\''+orderId+'\')">🚫 Cancel</button>'
-              : '<button class="btnaccept" onclick="acceptOrder(\''+o._docId+'\',\''+orderId+'\')">✅ Accept</button>'
-                +'<button class="btnreject" onclick="rejectOrder(\''+o._docId+'\',\''+orderId+'\')">❌ Reject</button>'
-        )
-        +(cleanPhone&&!isCancelledOrRejected?'<a class="btnwa" href="https://wa.me/'+cleanPhone+'?text=Hi+'+encodeURIComponent(o.name||o.customerName||o.userName||o.fullName||'Customer')+',+your+order+%23'+orderId+'+is+on+the+way!+%F0%9F%9B%B5+BudgetMein" target="_blank">💬</a>':'')
+        +(!isDone
+          ? '<button class="btndeliver" onclick="markDone(\''+o._docId+'\',\''+orderId+'\',this)">📦 Mark Delivered</button>'
+          : '<span class="donebadge">✅ Delivered</span>')
+        +(cleanPhone?'<a class="btnwa" href="https://wa.me/'+cleanPhone+'?text=Hi+'+encodeURIComponent(o.name||o.customerName||o.userName||o.fullName||'Customer')+',+your+order+%23'+orderId+'+is+on+the+way!+%F0%9F%9B%B5+BudgetMein" target="_blank">💬</a>':'')
         +(cleanPhone?'<a class="btnwa" href="tel:+'+cleanPhone+'" style="font-size:.75rem">📞</a>':'')
         +'<button class="btndel" onclick="delOrder(\''+o._docId+'\',\''+orderId+'\')">🗑️</button>'
       +'</div>'
@@ -445,41 +433,6 @@ window.deleteBoy = async function(docId,name){
   }catch(e){ alert('Error: '+e.message); }
 };
 
-// ════════════════════════════════════════════════════
-// ACCEPT / REJECT / CANCEL ORDER
-// ════════════════════════════════════════════════════
-window.acceptOrder = async function(docId, orderId){
-  if(!confirm('✅ Accept order #'+orderId+'?\nCall Fry Day NOW to start preparation.\nCancel will not be possible after this.')) return;
-  try{
-    await updateDoc(doc(db,'orders',docId),{status:'Accepted',acceptedAt:Date.now()});
-    await tgMsg('✅ <b>ORDER ACCEPTED</b>\n──────────────\n🆔 #'+orderId+'\n⏰ '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})+'\n🍳 Preparation started');
-    window.loadOrders();
-  }catch(e){ alert('Error: '+e.message); }
-};
-
-window.rejectOrder = async function(docId, orderId){
-  var reason = prompt('❌ Reject order #'+orderId+'\nReason (mandatory):');
-  if(reason===null) return;
-  if(!reason.trim()){ alert('Reason is mandatory!'); return; }
-  try{
-    await updateDoc(doc(db,'orders',docId),{status:'Rejected',cancelReason:reason.trim(),cancelledAt:Date.now(),cancelledBy:'admin'});
-    await tgMsg('❌ <b>ORDER REJECTED</b>\n──────────────\n🆔 #'+orderId+'\n📝 '+reason.trim()+'\n⏰ '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}));
-    window.loadOrders();
-  }catch(e){ alert('Error: '+e.message); }
-};
-
-window.cancelOrder = async function(docId, orderId){
-  var reason = prompt('🚫 Cancel order #'+orderId+'\nReason (mandatory):');
-  if(reason===null) return;
-  if(!reason.trim()){ alert('Reason is mandatory!'); return; }
-  try{
-    await updateDoc(doc(db,'orders',docId),{status:'Cancelled',cancelReason:reason.trim(),cancelledAt:Date.now(),cancelledBy:'admin'});
-    await tgMsg('🚫 <b>ORDER CANCELLED</b>\n──────────────\n🆔 #'+orderId+'\n📝 '+reason.trim()+'\n⏰ '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}));
-    window.loadOrders();
-  }catch(e){ alert('Error: '+e.message); }
-};
-
-
 </script>
 
 <style>
@@ -572,10 +525,6 @@ pre.oitems{font-family:'Poppins',sans-serif;font-size:.74rem;color:#777;padding:
 .btnwa:hover{background:rgba(37,211,102,.12)}
 .btnpaid{margin-left:8px;padding:4px 12px;border:none;border-radius:20px;background:#28A745;color:#fff;font-family:'Poppins',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer}
 .donebadge{flex:1;text-align:center;padding:9px;color:#28A745;font-size:.82rem;font-weight:600;background:rgba(40,167,69,.07);border-radius:50px}
-.btnaccept{flex:1;min-width:100px;padding:10px;border:none;border-radius:50px;background:linear-gradient(135deg,#28A745,#1E7E34);color:#fff;font-family:'Poppins',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .25s}
-.btnaccept:hover{transform:scale(1.02)}
-.btnreject{flex:1;min-width:100px;padding:10px;border:1.5px solid rgba(192,57,43,.5);border-radius:50px;background:rgba(192,57,43,.1);color:#C0392B;font-family:'Poppins',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .25s}
-.btnreject:hover{background:rgba(192,57,43,.22)}
 
 /* ── DELIVERY BOY CARDS ── */
 .boycard{background:#1A1A2E;border-radius:14px;padding:16px;margin-bottom:12px;border:1.5px solid #1E1E30;transition:all .3s}
