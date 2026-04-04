@@ -127,13 +127,15 @@ window.loadOrders = async function(){
 
 function renderOrders(orders){
   var div    = document.getElementById('ordersDiv');
-  var active = orders.filter(function(o){ return o.status!=='Delivered'; }).length;
-  var done   = orders.filter(function(o){ return o.status==='Delivered'; }).length;
-  var revenue= orders.filter(function(o){ return o.status==='Delivered'; }).reduce(function(s,o){ return s+(o.total||o.totalAmount||0); },0);
+  var active    = orders.filter(function(o){ return o.status!=='Delivered' && o.status!=='Cancelled' && o.status!=='cancelled'; }).length;
+  var done      = orders.filter(function(o){ return o.status==='Delivered'; }).length;
+  var cancelled = orders.filter(function(o){ return o.status==='Cancelled'||o.status==='cancelled'; }).length;
+  var revenue   = orders.filter(function(o){ return o.status==='Delivered'; }).reduce(function(s,o){ return s+(o.total||o.totalAmount||0); },0);
   document.getElementById('stats').innerHTML =
     '<div class="stat"><span class="snum">'+orders.length+'</span><span class="slbl">Total</span></div>'+
     '<div class="stat act"><span class="snum">'+active+'</span><span class="slbl">Active 🔄</span></div>'+
     '<div class="stat dn"><span class="snum">'+done+'</span><span class="slbl">Done ✅</span></div>'+
+    (cancelled?'<div class="stat" style="border-color:rgba(231,76,60,.3)"><span class="snum" style="color:#E74C3C">'+cancelled+'</span><span class="slbl">Cancelled 🚫</span></div>':'')+
     '<div class="stat rv"><span class="snum">₹'+revenue+'</span><span class="slbl">Revenue 💰</span></div>';
   if(!orders.length){
     div.innerHTML = '<div class="empty">No orders yet 🍔<br/>Orders appear here when customers place them.</div>';
@@ -143,9 +145,11 @@ function renderOrders(orders){
     var st = o.startTime||0;
     if(typeof st==='object'&&st&&st.seconds) st=st.seconds*1000;
     var elapsed = st ? ((Date.now()-st)/60000) : 0;
-    var isDone  = o.status==='Delivered';
+    var isDone       = o.status==='Delivered';
+    var isCancelled  = o.status==='Cancelled'||o.status==='cancelled';
     var phase   = '📋 Order Received';
-    if(isDone)          phase = '✅ Delivered';
+    if(isDone)           phase = '✅ Delivered';
+    else if(isCancelled) phase = '🚫 Cancelled';
     else if(elapsed>=18) phase = '🛵 Out for Delivery';
     else if(elapsed>=4)  phase = '🔄 Being Prepared';
     var items = (o.itemsFull&&o.itemsFull.length)
@@ -165,12 +169,13 @@ function renderOrders(orders){
           +'<button class="btnpaid" onclick="markCashPaid(\''+o._docId+'\',\''+orderId+'\','+orderTotal+')">✅ Mark Cash Paid</button></div>';
       }
     }
-    return '<div class="ocard '+(isDone?'done':'actv')+'" id="oc-'+o._docId+'">'
+    return '<div class="ocard '+(isDone?'done':isCancelled?'cncl':'actv')+'" id="oc-'+o._docId+'">'
       +'<div class="ohead">'
         +'<span class="oid">#'+orderId+'</span>'
-        +'<span class="ophase '+(isDone?'phdone':'phact')+'">'+phase+'</span>'
+        +'<span class="ophase '+(isDone?'phdone':isCancelled?'phcncl':'phact')+'">'+phase+'</span>'
         +'<span class="odt">'+(o.date||'')+(o.time?' · '+o.time:'')+'</span>'
       +'</div>'
+      +(isCancelled?'<div style="font-size:.75rem;color:#E74C3C;background:rgba(231,76,60,.1);border-radius:8px;padding:7px 10px;margin-bottom:8px">🚫 Cancelled by customer' + (o.cancelReason?' — <b>'+o.cancelReason+'</b>':'') + '</div>':'')
       +'<div class="ocust">'
         +'<b>👤 '+(o.name||o.customerName||o.userName||o.fullName||o.user_name||o.customer_name||'Guest')+'</b>'
         +'<span>📱 '+maskedPhone+' <small style="color:#555;font-size:.65rem">(hidden for privacy)</small>'
@@ -201,10 +206,12 @@ function renderOrders(orders){
         +'<span>💵 Cash on Delivery</span>'
       +'</div>'
       +'<div class="oacts">'
-        +(!isDone
-          ? '<button class="btndeliver" onclick="markDone(\''+o._docId+'\',\''+orderId+'\',this)">📦 Mark Delivered</button>'
-          : '<span class="donebadge">✅ Delivered</span>')
-        +(cleanPhone?'<a class="btnwa" href="https://wa.me/'+cleanPhone+'?text=Hi+'+encodeURIComponent(o.name||o.customerName||o.userName||o.fullName||'Customer')+',+your+order+%23'+orderId+'+is+on+the+way!+%F0%9F%9B%B5+BudgetMein" target="_blank">💬</a>':'')
+        +(isCancelled
+          ? '<span class="donebadge" style="background:rgba(231,76,60,.15);color:#E74C3C">🚫 Cancelled</span>'
+          : !isDone
+            ? '<button class="btndeliver" onclick="markDone(\''+o._docId+'\',\''+orderId+'\',this)">📦 Mark Delivered</button>'
+            : '<span class="donebadge">✅ Delivered</span>')
+        +(cleanPhone&&!isCancelled?'<a class="btnwa" href="https://wa.me/'+cleanPhone+'?text=Hi+'+encodeURIComponent(o.name||o.customerName||o.userName||o.fullName||'Customer')+',+your+order+%23'+orderId+'+is+on+the+way!+%F0%9F%9B%B5+BudgetMein" target="_blank">💬</a>':'')
         +(cleanPhone?'<a class="btnwa" href="tel:+'+cleanPhone+'" style="font-size:.75rem">📞</a>':'')
         +'<button class="btndel" onclick="delOrder(\''+o._docId+'\',\''+orderId+'\')">🗑️</button>'
       +'</div>'
@@ -495,6 +502,8 @@ body{font-family:'Poppins',sans-serif;background:#0D0D1A;color:#fff;min-height:1
 /* ── ORDER CARDS ── */
 .ocard{background:#1A1A2E;border-radius:14px;padding:16px;margin-bottom:12px;border:1.5px solid #1E1E30;transition:all .3s}
 .ocard.actv{border-color:rgba(255,69,0,.3)}
+.ocard.cncl{border-color:rgba(231,76,60,.3);opacity:.75}
+.phcncl{background:rgba(231,76,60,.15);color:#E74C3C}
 .ocard.done{opacity:.65}
 .ohead{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px}
 .oid{font-size:.92rem;font-weight:800;color:#FF4500}
