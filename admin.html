@@ -4,14 +4,6 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1,user-scalable=no"/>
 <title>BudgetMein Admin</title>
-  <link rel="manifest" href="admin-manifest.json"/>
-  <meta name="theme-color" content="#FF4500"/>
-  <meta name="mobile-web-app-capable" content="yes"/>
-  <meta name="apple-mobile-web-app-capable" content="yes"/>
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <meta name="apple-mobile-web-app-title" content="BudgetMein Admin"/>
-  <link rel="apple-touch-icon" href="https://res.cloudinary.com/dklefbj2a/image/upload/v1774691379/WhatsApp_Image_2026-03-28_at_3.19.06_PM_frut9w.jpg"/>
-  <link rel="icon" type="image/jpeg" href="https://res.cloudinary.com/dklefbj2a/image/upload/v1774691379/WhatsApp_Image_2026-03-28_at_3.19.06_PM_frut9w.jpg"/>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
 :root{--p:#FF4500;--pd:#CC3700;--bg:#0A0C1A;--card:#141626;--card2:#1E2035;--border:#2A2D45;--text:#F0F2FF;--muted:#8892B0;--ok:#22C55E;--warn:#F59E0B;--er:#EF4444;--blue:#3B82F6;--purple:#8B5CF6;--tr:all .2s ease}
@@ -219,8 +211,7 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
         <div class="admin-name" id="adminName">Admin</div>
         <div class="admin-email" id="adminEmail"></div>
       </div>
-      <button id="pwaInstallBtn" onclick="installPWA()" style="display:none;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:rgba(255,69,0,.12);color:var(--p);font-size:.8rem;font-weight:600;cursor:pointer;margin-right:8px;">⬇ Install App</button>
-  <button class="logout-btn" onclick="doLogout()">Logout</button>
+      <button class="logout-btn" onclick="doLogout()">Logout</button>
     </div>
   </div>
 
@@ -321,7 +312,7 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import{getFirestore,collection,query,orderBy,onSnapshot,doc,updateDoc,deleteDoc,addDoc,getDocs,serverTimestamp,setDoc}from"https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 import{getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-
+import{initializeAppCheck,ReCaptchaV3Provider}from"https://www.gstatic.com/firebasejs/10.11.0/firebase-app-check.js";
 
 const FB={apiKey:"AIzaSyCVPIRPTwByKE431I5QwcPEmTH9qgcitj8",authDomain:"budgetmein-62bc0.firebaseapp.com",projectId:"budgetmein-62bc0",storageBucket:"budgetmein-62bc0.firebasestorage.app",messagingSenderId:"1097719035074",appId:"1:1097719035074:web:1570114f2b10d6fbe8775b"};
 const fbApp=initializeApp(FB);
@@ -329,7 +320,15 @@ const db=getFirestore(fbApp);
 const auth=getAuth(fbApp);
 const ADMIN_EMAIL='immkraut@gmail.com';
 
-
+// ============================================================
+// APP CHECK — fixes "Missing or insufficient permissions" errors
+// ============================================================
+try{
+  initializeAppCheck(fbApp,{
+    provider:new ReCaptchaV3Provider('6Lf_q60sAAAAAF_tE0tSUF-L3cni5Ibr90HQM_-d'),
+    isTokenAutoRefreshEnabled:true
+  });
+}catch(e){}
 
 // ============================================================
 // STATE
@@ -718,31 +717,5 @@ window.removeDeliveryBoy=function(docId,name){
   });
 };
 </script>
-
-  <script>
-  // PWA Install Prompt
-  let deferredPrompt;
-  window.addEventListener('beforeinstallprompt',(e)=>{
-    e.preventDefault();
-    deferredPrompt=e;
-    const btn=document.getElementById('pwaInstallBtn');
-    if(btn)btn.style.display='flex';
-  });
-  window.addEventListener('appinstalled',()=>{
-    const btn=document.getElementById('pwaInstallBtn');
-    if(btn)btn.style.display='none';
-    deferredPrompt=null;
-  });
-  window.installPWA=function(){
-    if(deferredPrompt){
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then(()=>{deferredPrompt=null;});
-    }
-  };
-  // Register service worker
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
-  }
-  </script>
 </body>
 </html>
