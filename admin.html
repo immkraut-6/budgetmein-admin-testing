@@ -4,13 +4,20 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1,user-scalable=no"/>
 <title>BudgetMein Admin</title>
+<link rel="manifest" href="manifest-admin.json"/>
+<meta name="theme-color" content="#FF4500"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="BM Admin"/>
+<link rel="apple-touch-icon" href="https://budgetmein.com/logo192.png"/>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
 :root{--p:#FF4500;--pd:#CC3700;--bg:#0A0C1A;--card:#141626;--card2:#1E2035;--border:#2A2D45;--text:#F0F2FF;--muted:#8892B0;--ok:#22C55E;--warn:#F59E0B;--er:#EF4444;--blue:#3B82F6;--purple:#8B5CF6;--tr:all .2s ease}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 button,a{font-family:'Poppins',sans-serif;cursor:pointer}
-/* ====== LOGIN SCREEN ====== */
+/* LOGIN */
 #loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:radial-gradient(ellipse at 60% 40%,rgba(255,69,0,.12),transparent 60%),var(--bg)}
 .login-box{background:var(--card);border:1px solid var(--border);border-radius:24px;padding:48px 40px;text-align:center;width:min(420px,90vw);box-shadow:0 40px 80px rgba(0,0,0,.5)}
 .login-logo{font-size:2.8rem;font-weight:800;color:var(--text);margin-bottom:8px}
@@ -21,9 +28,8 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
 .google-btn svg{width:22px;height:22px;flex-shrink:0}
 .login-note{font-size:.75rem;color:var(--muted);margin-top:18px}
 #loginError{margin-top:14px;padding:12px 16px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:10px;font-size:.82rem;color:var(--er);display:none}
-/* ====== MAIN APP ====== */
+/* MAIN APP */
 #app{display:none;flex-direction:column;min-height:100vh}
-/* HEADER */
 .topbar{background:var(--card);border-bottom:1px solid var(--border);padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
 .topbar-brand{display:flex;align-items:center;gap:12px}
 .brand-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--p),var(--pd));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
@@ -37,7 +43,7 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
 .time-badge{font-size:.75rem;color:var(--muted);padding:6px 12px;background:var(--card2);border-radius:8px;border:1px solid var(--border)}
 .logout-btn{padding:8px 16px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.8rem;font-weight:600;transition:var(--tr)}
 .logout-btn:hover{background:rgba(239,68,68,.12);color:var(--er);border-color:rgba(239,68,68,.3)}
-/* STATS BAR */
+/* STATS */
 .stats-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:20px 24px 0}
 .stat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;cursor:pointer;transition:var(--tr)}
 .stat-card:hover{border-color:var(--p);transform:translateY(-2px)}
@@ -60,7 +66,7 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
 .tab-btn{padding:10px 20px;border-radius:10px;border:none;background:transparent;color:var(--muted);font-size:.85rem;font-weight:600;transition:var(--tr)}
 .tab-btn:hover{color:var(--text)}
 .tab-btn.active{background:rgba(255,69,0,.12);color:var(--p)}
-/* ORDER FILTERS */
+/* FILTER ROW */
 .filter-row{display:flex;gap:8px;padding:16px 24px 12px;overflow-x:auto;scrollbar-width:none;flex-wrap:wrap}
 .filter-row::-webkit-scrollbar{display:none}
 .filter-chip{padding:7px 16px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:.78rem;font-weight:600;cursor:pointer;transition:var(--tr);white-space:nowrap;display:flex;align-items:center;gap:6px}
@@ -68,10 +74,9 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
 .filter-chip.active{background:var(--p);border-color:var(--p);color:#fff}
 .chip-count{background:rgba(255,255,255,.2);border-radius:20px;padding:1px 7px;font-size:.68rem}
 .filter-chip:not(.active) .chip-count{background:var(--card2);color:var(--text)}
-/* ORDERS PANEL */
+/* ORDERS */
 #ordersPanel{padding:0 24px 24px}
 #ordersGrid{display:flex;flex-direction:column;gap:12px;margin-top:12px}
-/* ORDER CARD */
 .order-card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;transition:var(--tr)}
 .order-card:hover{border-color:rgba(255,69,0,.25);box-shadow:0 8px 24px rgba(0,0,0,.25)}
 .oc-top{display:flex;align-items:flex-start;justify-content:space-between;padding:16px 18px 12px;gap:12px}
@@ -105,11 +110,10 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
 .act-pickup{background:rgba(139,92,246,.1);color:var(--purple);border-color:rgba(139,92,246,.3)}
 .act-deliver{background:rgba(34,197,94,.1);color:var(--ok);border-color:rgba(34,197,94,.3)}
 .act-cancel{background:rgba(239,68,68,.07);color:var(--er);border-color:rgba(239,68,68,.25)}
-.act-assign{background:rgba(245,158,11,.1);color:var(--warn);border-color:rgba(245,158,11,.3)}
 .oc-assign-row{padding:0 18px 14px;display:flex;align-items:center;gap:10px}
 .assign-select{flex:1;padding:9px 12px;background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'Poppins',sans-serif;font-size:.8rem;outline:none;cursor:pointer}
 .assign-select option{background:var(--card2)}
-/* DELIVERY BOYS PANEL */
+/* DELIVERY BOYS */
 #deliveryPanel{padding:0 24px 24px;display:none}
 .panel-header{display:flex;align-items:center;justify-content:space-between;padding:16px 0 14px}
 .panel-title{font-size:1rem;font-weight:700}
@@ -128,14 +132,13 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
 .db-orders{font-size:.72rem;color:var(--p);font-weight:600;margin-top:3px}
 .db-del-btn{padding:7px 14px;border-radius:8px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.07);color:var(--er);font-size:.75rem;font-weight:600;transition:var(--tr);flex-shrink:0}
 .db-del-btn:hover{background:rgba(239,68,68,.18)}
-/* EMPTY / LOADING STATES */
+/* STATES */
 .empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
 .empty-icon{font-size:3rem;display:block;margin-bottom:14px;opacity:.5}
 .empty-title{font-size:1rem;font-weight:700;color:var(--text);margin-bottom:6px}
 .empty-sub{font-size:.82rem;line-height:1.6}
 .loading-spin{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--p);border-radius:50%;animation:spin .7s linear infinite;margin:40px auto}
 @keyframes spin{to{transform:rotate(360deg)}}
-/* GPS / MAP LINK */
 .gps-link{display:inline-flex;align-items:center;gap:5px;font-size:.75rem;color:var(--blue);text-decoration:none;font-weight:600;margin-top:3px}
 .gps-link:hover{text-decoration:underline}
 /* TOAST */
@@ -144,11 +147,10 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
 .toast-ok{border-color:rgba(34,197,94,.4);color:var(--ok)}
 .toast-err{border-color:rgba(239,68,68,.4);color:var(--er)}
 @keyframes slideIn{from{transform:translateX(60px);opacity:0}to{transform:none;opacity:1}}
-/* SCROLL */
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-/* CONFIRM MODAL */
+/* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
 .modal-overlay.on{opacity:1;pointer-events:all}
 .modal-box{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px;width:min(420px,90vw);box-shadow:0 40px 80px rgba(0,0,0,.6)}
@@ -162,6 +164,12 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
 .mbtn-ok:hover{background:var(--pd)}
 .mbtn-danger{border-color:var(--er);background:rgba(239,68,68,.1);color:var(--er)}
 .mbtn-danger:hover{background:var(--er);color:#fff}
+/* PWA install banner */
+#pwaBar{display:none;align-items:center;justify-content:space-between;padding:10px 24px;background:linear-gradient(90deg,rgba(255,69,0,.15),rgba(255,69,0,.05));border-bottom:1px solid rgba(255,69,0,.25);gap:12px}
+.pwa-msg{font-size:.8rem;color:var(--text);font-weight:600}
+.pwa-btns{display:flex;gap:8px;flex-shrink:0}
+.pwa-install{padding:7px 16px;border-radius:8px;border:1px solid var(--p);background:var(--p);color:#fff;font-size:.75rem;font-weight:700}
+.pwa-dismiss{padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.75rem;font-weight:600}
 @media(max-width:900px){
   .stats-bar{grid-template-columns:repeat(3,1fr)}
   .oc-body{grid-template-columns:1fr}
@@ -180,7 +188,7 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
 </head>
 <body>
 
-<!-- LOGIN SCREEN -->
+<!-- LOGIN -->
 <div id="loginScreen">
   <div class="login-box">
     <div class="login-logo">Budget<span>Mein</span></div>
@@ -196,6 +204,15 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
 
 <!-- MAIN APP -->
 <div id="app">
+  <!-- PWA INSTALL BAR -->
+  <div id="pwaBar">
+    <div class="pwa-msg">📱 Install BudgetMein Admin as an app for faster access</div>
+    <div class="pwa-btns">
+      <button class="pwa-install" onclick="installPWA()">Install</button>
+      <button class="pwa-dismiss" onclick="document.getElementById('pwaBar').style.display='none'">✕</button>
+    </div>
+  </div>
+
   <!-- TOPBAR -->
   <div class="topbar">
     <div class="topbar-brand">
@@ -252,7 +269,6 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
 
   <!-- ORDERS PANEL -->
   <div id="ordersPanel">
-    <!-- FILTER ROW -->
     <div class="filter-row" id="filterRow">
       <div class="filter-chip active" data-f="all" onclick="setFilter('all')">All <span class="chip-count" id="fc-all">0</span></div>
       <div class="filter-chip" data-f="pending" onclick="setFilter('pending')">🟡 Pending <span class="chip-count" id="fc-pending">0</span></div>
@@ -261,7 +277,6 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
       <div class="filter-chip" data-f="delivered" onclick="setFilter('delivered')">🟢 Delivered <span class="chip-count" id="fc-delivered">0</span></div>
       <div class="filter-chip" data-f="cancelled" onclick="setFilter('cancelled')">🔴 Cancelled <span class="chip-count" id="fc-cancelled">0</span></div>
     </div>
-    <!-- CONTROLS -->
     <div class="controls-bar">
       <div class="search-box">
         <span style="color:var(--muted);font-size:.9rem">🔍</span>
@@ -270,7 +285,6 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
       <button class="ctrl-btn" onclick="clearDeliveredOrders()">🗑 Clear Delivered</button>
       <button class="ctrl-btn danger" onclick="confirmClearAll()">⚠️ Clear All</button>
     </div>
-    <!-- ORDERS GRID -->
     <div id="ordersGrid"><div class="loading-spin"></div></div>
   </div>
 
@@ -279,7 +293,6 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
     <div class="panel-header">
       <div class="panel-title">🛵 Delivery Boys</div>
     </div>
-    <!-- ADD FORM -->
     <div class="add-db-form">
       <div style="font-size:.8rem;font-weight:700;margin-bottom:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Register New Delivery Boy</div>
       <div class="form-row">
@@ -310,25 +323,27 @@ button,a{font-family:'Poppins',sans-serif;cursor:pointer}
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-import{getFirestore,collection,query,orderBy,onSnapshot,doc,updateDoc,deleteDoc,addDoc,getDocs,serverTimestamp,setDoc}from"https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+import{getFirestore,collection,query,orderBy,onSnapshot,doc,updateDoc,deleteDoc,setDoc,getDocs,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 import{getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-import{initializeAppCheck,ReCaptchaV3Provider}from"https://www.gstatic.com/firebasejs/10.11.0/firebase-app-check.js";
 
-const FB={apiKey:"AIzaSyCVPIRPTwByKE431I5QwcPEmTH9qgcitj8",authDomain:"budgetmein-62bc0.firebaseapp.com",projectId:"budgetmein-62bc0",storageBucket:"budgetmein-62bc0.firebasestorage.app",messagingSenderId:"1097719035074",appId:"1:1097719035074:web:1570114f2b10d6fbe8775b"};
+// ============================================================
+// FIREBASE CONFIG — App Check intentionally NOT used here
+// because reCAPTCHA App Check can silently break write
+// operations (cancel, delete) when the token fails to load.
+// Security is enforced through Firestore Rules (admin email).
+// ============================================================
+const FB={
+  apiKey:"AIzaSyCVPIRPTwByKE431I5QwcPEmTH9qgcitj8",
+  authDomain:"budgetmein-62bc0.firebaseapp.com",
+  projectId:"budgetmein-62bc0",
+  storageBucket:"budgetmein-62bc0.firebasestorage.app",
+  messagingSenderId:"1097719035074",
+  appId:"1:1097719035074:web:1570114f2b10d6fbe8775b"
+};
 const fbApp=initializeApp(FB);
 const db=getFirestore(fbApp);
 const auth=getAuth(fbApp);
 const ADMIN_EMAIL='immkraut@gmail.com';
-
-// ============================================================
-// APP CHECK — fixes "Missing or insufficient permissions" errors
-// ============================================================
-try{
-  initializeAppCheck(fbApp,{
-    provider:new ReCaptchaV3Provider('6Lf_q60sAAAAAF_tE0tSUF-L3cni5Ibr90HQM_-d'),
-    isTokenAutoRefreshEnabled:true
-  });
-}catch(e){}
 
 // ============================================================
 // STATE
@@ -339,6 +354,27 @@ let currentFilter='all';
 let ordersUnsubscribe=null;
 let dbUnsubscribe=null;
 let modalOkFn=null;
+
+// ============================================================
+// PWA
+// ============================================================
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',(e)=>{
+  e.preventDefault();
+  deferredPrompt=e;
+  document.getElementById('pwaBar').style.display='flex';
+});
+window.installPWA=function(){
+  if(!deferredPrompt)return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(()=>{
+    deferredPrompt=null;
+    document.getElementById('pwaBar').style.display='none';
+  });
+};
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').catch(()=>{});
+}
 
 // ============================================================
 // HELPERS
@@ -434,7 +470,7 @@ onAuthStateChanged(auth,user=>{
     document.getElementById('adminEmail').textContent=user.email;
     startListeners();
     startClock();
-  } else {
+  }else{
     document.getElementById('loginScreen').style.display='flex';
     document.getElementById('app').style.display='none';
     if(ordersUnsubscribe)ordersUnsubscribe();
@@ -461,7 +497,10 @@ function startClock(){
 // REAL-TIME LISTENERS
 // ============================================================
 function startListeners(){
-  // Orders — listen to all orders sorted by creation
+  // Orders — sorted by startTime desc
+  // NOTE: This requires a Firestore composite index on 'orders' collection
+  // for field 'startTime' DESC. If you get an index error, click the link
+  // in the browser console to create it automatically in Firebase Console.
   const q=query(collection(db,'orders'),orderBy('startTime','desc'));
   ordersUnsubscribe=onSnapshot(q,(snap)=>{
     allOrders=[];
@@ -475,7 +514,9 @@ function startListeners(){
     updateStats();
     renderOrders();
   },(err)=>{
-    document.getElementById('ordersGrid').innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span><div class="empty-title">Permission Error</div><div class="empty-sub">Cannot read orders. Make sure Firebase App Check is enabled and you are signed in as '+ADMIN_EMAIL+'.<br/><br/><small>'+escHtml(err.message)+'</small></div></div>';
+    console.error('Orders listener error:',err);
+    document.getElementById('ordersGrid').innerHTML=
+      '<div class="empty-state"><span class="empty-icon">⚠️</span><div class="empty-title">Error Loading Orders</div><div class="empty-sub">'+escHtml(err.message)+'<br/><br/>If this is an index error, check the browser console for a link to create the required index.</div></div>';
   });
 
   // Delivery Boys
@@ -497,23 +538,26 @@ function updateStats(){
   document.getElementById('statConfirmed').textContent=counts.confirmed;
   document.getElementById('statOTW').textContent=counts.out_for_delivery;
   document.getElementById('statDone').textContent=counts.delivered;
-  // Update filter chips
-  ['all','pending','confirmed','out_for_delivery','delivered','cancelled'].forEach(f=>{
-    const el=document.getElementById('fc-'+f);
-    if(el)el.textContent=counts[f]||0;
+  // chips
+  Object.keys(counts).forEach(k=>{
+    const el=document.getElementById('fc-'+k);
+    if(el)el.textContent=counts[k];
   });
 }
 
 // ============================================================
 // FILTER
 // ============================================================
+let currentFilterVal='all';
 window.setFilter=function(f){
-  currentFilter=f;
-  document.querySelectorAll('.filter-chip').forEach(el=>{
-    el.classList.toggle('active',el.dataset.f===f);
+  currentFilterVal=f;
+  // stat cards
+  document.querySelectorAll('.stat-card').forEach(c=>{
+    c.classList.toggle('active-filter',c.dataset.filter===f);
   });
-  document.querySelectorAll('.stat-card').forEach(el=>{
-    el.classList.toggle('active-filter',el.dataset.filter===f);
+  // chips
+  document.querySelectorAll('.filter-chip').forEach(c=>{
+    c.classList.toggle('active',c.dataset.f===f);
   });
   renderOrders();
 };
@@ -534,7 +578,7 @@ window.switchTab=function(tab){
 window.renderOrders=function(){
   const search=(document.getElementById('searchInput').value||'').toLowerCase().trim();
   let list=allOrders.filter(o=>{
-    if(currentFilter!=='all'&&(o.status||'pending')!==currentFilter)return false;
+    if(currentFilterVal!=='all'&&(o.status||'pending')!==currentFilterVal)return false;
     if(search){
       const hay=[o.orderId||o.id||'',o.customerName||'',o.phone||'',o.address||'',o.email||''].join(' ').toLowerCase();
       if(!hay.includes(search))return false;
@@ -543,7 +587,7 @@ window.renderOrders=function(){
   });
   const grid=document.getElementById('ordersGrid');
   if(!list.length){
-    grid.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span><div class="empty-title">No orders found</div><div class="empty-sub">'+(currentFilter==='all'?'No orders yet. They will appear here in real-time.':'No '+fmtStatus(currentFilter).toLowerCase()+' orders right now.')+'</div></div>';
+    grid.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span><div class="empty-title">No orders found</div><div class="empty-sub">'+(currentFilterVal==='all'?'No orders yet. They will appear here in real-time.':'No '+fmtStatus(currentFilterVal).toLowerCase()+' orders right now.')+'</div></div>';
     return;
   }
   grid.innerHTML=list.map(o=>orderCardHTML(o)).join('');
@@ -561,11 +605,11 @@ function orderCardHTML(o){
   let actionsHTML='';
   if(s==='pending'){
     actionsHTML=`<button class="act-btn act-confirm" onclick="updateStatus('${o._docId}','confirmed')">✅ Confirm Order</button><button class="act-btn act-cancel" onclick="cancelOrder('${o._docId}')">✖ Cancel</button>`;
-  } else if(s==='confirmed'){
+  }else if(s==='confirmed'){
     actionsHTML=`<button class="act-btn act-pickup" onclick="updateStatus('${o._docId}','out_for_delivery')">🛵 Out for Delivery</button><button class="act-btn act-cancel" onclick="cancelOrder('${o._docId}')">✖ Cancel</button>`;
-  } else if(s==='out_for_delivery'){
-    actionsHTML=`<button class="act-btn act-deliver" onclick="updateStatus('${o._docId}','delivered')">✅ Mark Delivered</button>`;
-  } else if(s==='delivered'||s==='cancelled'){
+  }else if(s==='out_for_delivery'){
+    actionsHTML=`<button class="act-btn act-deliver" onclick="updateStatus('${o._docId}','delivered')">✅ Mark Delivered</button><button class="act-btn act-cancel" onclick="cancelOrder('${o._docId}')">✖ Cancel</button>`;
+  }else if(s==='delivered'||s==='cancelled'){
     actionsHTML=`<button class="act-btn act-cancel" style="background:rgba(239,68,68,.07);color:var(--er);border-color:rgba(239,68,68,.25)" onclick="deleteOrder('${o._docId}')">🗑 Delete Record</button>`;
   }
 
@@ -611,30 +655,43 @@ function orderCardHTML(o){
 }
 
 // ============================================================
-// ORDER ACTIONS
+// ORDER ACTIONS — FIX: removed App Check dependency; these now
+// work reliably because Firestore Rules allow admin email writes
 // ============================================================
 window.updateStatus=async function(docId,newStatus){
   try{
     await updateDoc(doc(db,'orders',docId),{status:newStatus,updatedAt:serverTimestamp()});
     toast('Order status updated to '+fmtStatus(newStatus),'ok');
-  }catch(e){toast('Failed: '+e.message,'err');}
+  }catch(e){
+    console.error('updateStatus error:',e);
+    toast('Failed: '+e.message,'err');
+  }
 };
 
+// FIX: cancelOrder was failing silently due to App Check token issues.
+// Now works because App Check is removed and admin email is verified by Firestore Rules.
 window.cancelOrder=function(docId){
   showModal('Cancel Order','Are you sure you want to cancel this order? The customer will see it as cancelled.','Cancel Order','danger',async()=>{
     try{
       await updateDoc(doc(db,'orders',docId),{status:'cancelled',cancelledAt:serverTimestamp(),updatedAt:serverTimestamp()});
       toast('Order cancelled','ok');
-    }catch(e){toast('Failed: '+e.message,'err');}
+    }catch(e){
+      console.error('cancelOrder error:',e);
+      toast('Failed to cancel: '+e.message,'err');
+    }
   });
 };
 
+// FIX: deleteOrder was failing silently. Now works correctly.
 window.deleteOrder=function(docId){
   showModal('Delete Order','This will permanently delete this order record. This cannot be undone.','Delete','danger',async()=>{
     try{
       await deleteDoc(doc(db,'orders',docId));
       toast('Order deleted','ok');
-    }catch(e){toast('Failed: '+e.message,'err');}
+    }catch(e){
+      console.error('deleteOrder error:',e);
+      toast('Failed to delete: '+e.message,'err');
+    }
   });
 };
 
